@@ -193,14 +193,14 @@ class OptimizedDatabaseManager:
                 CREATE INDEX idx_stock_summary ON stock_news_summary(stock_symbol);
             """)
             
-            try:
-                cur.execute("""
-                    DELETE FROM checkpoints 
-                    WHERE created_at < NOW() - INTERVAL '%s days';
-                """, (OPTIMIZED_CONFIG['checkpoint_ttl_days'],))
-            except psycopg2.errors.UndefinedTable:
-                # LangGraph checkpoint table not created yet – ignore
-                self.conn.rollback()
+            # try:
+            #     cur.execute("""
+            #         DELETE FROM checkpoints 
+            #         WHERE created_at < NOW() - INTERVAL '%s days';
+            #     """, (OPTIMIZED_CONFIG['checkpoint_ttl_days'],))
+            # except psycopg2.errors.UndefinedTable:
+            #     # LangGraph checkpoint table not created yet – ignore
+            #     self.conn.rollback()
             
         self.conn.commit()
         print("✅ Optimized database initialized")
@@ -992,16 +992,9 @@ workflow.add_edge("storage", END)
 workflow.add_edge("query_processor", END)
 
 # Compile
-checkpointer = PostgresSaver.from_conn_string(
-    "postgresql://postgres:12345@localhost/financial_news"
-)
-
-with PostgresSaver.from_conn_string(DB_URI) as ps:
-    ps.setup()                 # create checkpoint tables
-    app = workflow.compile(
-        checkpointer=ps        # pass the actual saver, not the context manager
-    )
-
+checkpointer = PostgresSaver.from_conn_string(DB_URI)
+checkpointer.setup()
+app = workflow.compile(checkpointer=checkpointer)
 
 # ============= FASTAPI WITH STREAMING =============
 @asynccontextmanager
